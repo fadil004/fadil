@@ -26,7 +26,7 @@ const INIT_STYLES = [
     extras:[{id:"ex_design2",name:"تصميم",icon:"🎨",perUnit:25},{id:"ex_sound2",name:"صوت وميكس",icon:"🎵",perUnit:40}] },
   { id:"mixed", name:"مكسد ميديا", icon:"🎬", desc:"فيديو + موشن", priceMode:"range", price30:0, minPer30:250, maxPer30:500,
     extras:[{id:"ex_mont",name:"مونتاج",icon:"✂️",perUnit:40},{id:"ex_sound3",name:"صوت",icon:"🎵",perUnit:35}] },
-  { id:"editing", name:"مونتاج", icon:"✂️", desc:"قص وترتيب وتنسيق", priceMode:"range", price30:0, minPer30:500, maxPer30:1000, extras:[] },
+  { id:"editing", name:"مونتاج", icon:"✂️", desc:"قص وترتيب وتنسيق", priceMode:"fixed", price30:500, minPer30:0, maxPer30:0, extras:[] },
   { id:"graphics", name:"جرافكس دزاين", icon:"✦", desc:"بوستر / سوشال ميديا", priceMode:"fixed", price30:50, minPer30:0, maxPer30:0, extras:[] },
 ];
 const INIT_PROFILES = [{ id:"default", name:"الأساسي", emoji:"⚡", styles:JSON.parse(JSON.stringify(INIT_STYLES)) }];
@@ -123,6 +123,9 @@ export default function App({ user, onSignOut }) {
           setProfiles(data.profiles);
           setApId(data.profiles[0].id);
           prevProfilesRef.current = data.profiles;
+        } else {
+          await syncProfiles([], INIT_PROFILES, user.id);
+          prevProfilesRef.current = INIT_PROFILES;
         }
         if (data.team) { setTeam(data.team); prevTeamRef.current = data.team; }
         if (data.logs) { setLogs(data.logs); prevLogsRef.current = data.logs; }
