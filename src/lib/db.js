@@ -21,10 +21,7 @@ function styleFromDB(s) {
     name: s.name,
     icon: s.icon,
     desc: s.description ?? '',
-    isFixed: s.is_fixed ?? false,
-    minPer30: s.min_per30 ?? 0,
-    maxPer30: s.max_per30 ?? 0,
-    fixedPrice: s.min_fixed || s.max_fixed || 0,
+    price30: s.min_per30 || s.max_per30 || s.min_fixed || s.max_fixed || 0,
     extras: (s.extras || [])
       .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
       .map(extraFromDB),
@@ -163,10 +160,10 @@ export async function syncProfiles(prevProfiles, nextProfiles, userId) {
           name: style.name,
           icon: style.icon,
           description: style.desc || '',
-          is_fixed: style.isFixed || false,
-          min_per30: style.minPer30 || 0,
-          max_per30: style.maxPer30 || 0,
-          min_fixed: style.fixedPrice || 0,
+          is_fixed: false,
+          min_per30: style.price30 || 0,
+          max_per30: 0,
+          min_fixed: 0,
           max_fixed: 0,
           display_order: j,
         });
