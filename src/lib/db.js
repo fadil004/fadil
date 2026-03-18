@@ -16,15 +16,19 @@ function profileFromDB(p) {
 }
 
 function styleFromDB(s) {
+  const isPiece = s.is_fixed === true;
+  const isRange = !isPiece && (s.max_per30 > 0);
   return {
     id: s.id,
     name: s.name,
     icon: s.icon,
     desc: s.description ?? '',
-    priceMode: (s.max_per30 > 0) ? "range" : "fixed",
-    price30: (s.max_per30 > 0) ? 0 : (s.min_per30 || s.min_fixed || s.max_fixed || 0),
-    minPer30: (s.max_per30 > 0) ? (s.min_per30 || 0) : 0,
-    maxPer30: (s.max_per30 > 0) ? (s.max_per30 || 0) : 0,
+    priceMode: isPiece ? "piece" : (isRange ? "range" : "fixed"),
+    price30: (!isPiece && !isRange) ? (s.min_per30 || 0) : 0,
+    minPer30: isRange ? (s.min_per30 || 0) : 0,
+    maxPer30: isRange ? (s.max_per30 || 0) : 0,
+    pricePerPiece: isPiece ? (s.min_per30 || 0) : 0,
+    unitDur: isPiece ? 30 : (s.min_fixed || 30),
     extras: (s.extras || [])
       .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
       .map(extraFromDB),
@@ -171,10 +175,12 @@ export async function syncProfiles(prevProfiles, nextProfiles, userId) {
           name: style.name,
           icon: style.icon,
           description: style.desc || '',
-          is_fixed: false,
-          min_per30: style.priceMode === "fixed" ? (style.price30 || 0) : (style.minPer30 || 0),
-          max_per30: style.priceMode === "fixed" ? 0 : (style.maxPer30 || 0),
-          min_fixed: 0,
+          is_fixed: style.priceMode === "piece",
+          min_per30: style.priceMode === "piece" ? (style.pricePerPiece || 0)
+                   : style.priceMode === "fixed"  ? (style.price30 || 0)
+                   : (style.minPer30 || 0),
+          max_per30: style.priceMode === "range" ? (style.maxPer30 || 0) : 0,
+          min_fixed: style.priceMode === "piece" ? 0 : (style.unitDur || 30),
           max_fixed: 0,
           display_order: j,
         });

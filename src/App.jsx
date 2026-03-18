@@ -14,20 +14,20 @@ const STATUS_MAP = {
 };
 
 const mkExtra = (name, icon, price) => ({ id: "ex_" + Date.now() + Math.random().toString(36).slice(2,6), name, icon, perUnit: price });
-const mkStyle = (name, icon, desc, priceMode="fixed", price30=0, minPer30=0, maxPer30=0, extras=[]) => ({
+const mkStyle = (name, icon, desc, priceMode="fixed", price30=0, minPer30=0, maxPer30=0, extras=[], unitDur=30, pricePerPiece=0) => ({
   id: "s_" + Date.now() + Math.random().toString(36).slice(2,6), name, icon, desc,
-  priceMode, price30, minPer30, maxPer30, extras,
+  priceMode, price30, minPer30, maxPer30, extras, unitDur, pricePerPiece,
 });
 
 const INIT_STYLES = [
-  { id:"collage", name:"كولاج", icon:"🎨", desc:"تصميم + تحريك + أصوات + مونتاج", priceMode:"range", price30:0, minPer30:500, maxPer30:1000,
+  { id:"collage", name:"كولاج", icon:"🎨", desc:"تصميم + تحريك + أصوات + مونتاج", priceMode:"range", price30:0, minPer30:500, maxPer30:1000, unitDur:30, pricePerPiece:0,
     extras:[{id:"ex_design",name:"تصميم",icon:"🎨",perUnit:30},{id:"ex_sound",name:"صوت وميكس",icon:"🎵",perUnit:50},{id:"ex_vo",name:"فويس اوفر",icon:"🎙️",perUnit:60}] },
-  { id:"flat", name:"فلات موشن", icon:"◆", desc:"تصميم وتحريك بسيط", priceMode:"range", price30:0, minPer30:300, maxPer30:750,
+  { id:"flat", name:"فلات موشن", icon:"◆", desc:"تصميم وتحريك بسيط", priceMode:"range", price30:0, minPer30:300, maxPer30:750, unitDur:30, pricePerPiece:0,
     extras:[{id:"ex_design2",name:"تصميم",icon:"🎨",perUnit:25},{id:"ex_sound2",name:"صوت وميكس",icon:"🎵",perUnit:40}] },
-  { id:"mixed", name:"مكسد ميديا", icon:"🎬", desc:"فيديو + موشن", priceMode:"range", price30:0, minPer30:250, maxPer30:500,
+  { id:"mixed", name:"مكسد ميديا", icon:"🎬", desc:"فيديو + موشن", priceMode:"range", price30:0, minPer30:250, maxPer30:500, unitDur:30, pricePerPiece:0,
     extras:[{id:"ex_mont",name:"مونتاج",icon:"✂️",perUnit:40},{id:"ex_sound3",name:"صوت",icon:"🎵",perUnit:35}] },
-  { id:"editing", name:"مونتاج", icon:"✂️", desc:"قص وترتيب وتنسيق", priceMode:"fixed", price30:500, minPer30:0, maxPer30:0, extras:[] },
-  { id:"graphics", name:"جرافكس دزاين", icon:"✦", desc:"بوستر / سوشال ميديا", priceMode:"fixed", price30:50, minPer30:0, maxPer30:0, extras:[] },
+  { id:"editing", name:"مونتاج", icon:"✂️", desc:"قص وترتيب وتنسيق", priceMode:"fixed", price30:500, minPer30:0, maxPer30:0, unitDur:30, pricePerPiece:0, extras:[] },
+  { id:"graphics", name:"جرافكس دزاين", icon:"✦", desc:"بوستر / سوشال ميديا", priceMode:"piece", price30:0, minPer30:0, maxPer30:0, unitDur:30, pricePerPiece:50, extras:[] },
 ];
 const INIT_PROFILES = [{ id:"default", name:"الأساسي", emoji:"⚡", styles:JSON.parse(JSON.stringify(INIT_STYLES)) }];
 
@@ -71,6 +71,7 @@ export default function App({ user, onSignOut }) {
   // Calculator
   const [selStyle, setSelStyle] = useState(null);
   const [dur, setDur] = useState(30);
+  const [qty, setQty] = useState(1);
   const [urg, setUrg] = useState(0);
   const [cur, setCur] = useState("USD");
   const [rate, setRate] = useState(1500);
@@ -173,17 +174,22 @@ export default function App({ user, onSignOut }) {
     let ft = 0;
     if (withTeam) ft = selMem.reduce((s,id) => s + (num(memCost[id])), 0);
     const urgMult = 1 + urg/100;
-    if (style.priceMode === "range") {
-      let minBase = (style.minPer30||0) * (dur/30) * urgMult + extTotal + ft;
-      let maxBase = (style.maxPer30||0) * (dur/30) * urgMult + extTotal + ft;
+    const unitDur = style.unitDur || 30;
+    if (style.priceMode === "piece") {
+      let total = (style.pricePerPiece||0) * qty * urgMult + extTotal + ft;
+      if (cur === "IQD") { total *= rate; ft *= rate; }
+      return { min:Math.round(total), max:Math.round(total), ft:cur==="IQD"?Math.round(ft):ft, et:cur==="IQD"?Math.round(extTotal*rate):extTotal };
+    } else if (style.priceMode === "range") {
+      let minBase = (style.minPer30||0) * (dur/unitDur) * urgMult + extTotal + ft;
+      let maxBase = (style.maxPer30||0) * (dur/unitDur) * urgMult + extTotal + ft;
       if (cur === "IQD") { minBase *= rate; maxBase *= rate; ft *= rate; }
       return { min:Math.round(minBase), max:Math.round(maxBase), ft:cur==="IQD"?Math.round(ft):ft, et:cur==="IQD"?Math.round(extTotal*rate):extTotal };
     } else {
-      let total = (style.price30||0) * (dur/30) * urgMult + extTotal + ft;
+      let total = (style.price30||0) * (dur/unitDur) * urgMult + extTotal + ft;
       if (cur === "IQD") { total *= rate; ft *= rate; }
       return { min:Math.round(total), max:Math.round(total), ft:cur==="IQD"?Math.round(ft):ft, et:cur==="IQD"?Math.round(extTotal*rate):extTotal };
     }
-  }, [style, dur, urg, cur, rate, withTeam, selMem, memCost, extTotal]);
+  }, [style, dur, qty, urg, cur, rate, withTeam, selMem, memCost, extTotal]);
   const res = calc();
 
   // ── Save to log ──
@@ -192,7 +198,7 @@ export default function App({ user, onSignOut }) {
     const usedExt = styleExtras.filter(ex => extState[ex.id]?.on).map(ex => ({ name:ex.name, icon:ex.icon, qty:extState[ex.id]?.qty||1, cost:(ex.perUnit||0)*(extState[ex.id]?.qty||1) }));
     const entry = {
       id: Date.now(), client: sf.client.trim(), notes: sf.notes, profile: ap.name, profileEmoji: ap.emoji,
-      style: style.name, styleIcon: style.icon, duration: `${dur} ثانية`,
+      style: style.name, styleIcon: style.icon, duration: style.priceMode==="piece" ? `${qty} قطعة` : `${dur} ثانية`,
       urgency: urg, currency: cur, priceMin: res.min, priceMax: res.max, extras: usedExt,
       teamMembers: withTeam ? selMem.map(mid => { const m = team.find(t=>t.id===mid); return m ? { id:m.id, name:m.name, estCost:memCost[mid]||0 } : null; }).filter(Boolean) : [],
       date: new Date().toISOString(), completed: false, finalReceived: null, finalTeamCosts: null,
@@ -250,8 +256,8 @@ export default function App({ user, onSignOut }) {
     setShowSet(false);
   };
 
-  const editStyle = s => { setEsId(s.id); const copy = JSON.parse(JSON.stringify(s)); if (!copy.priceMode) copy.priceMode = "fixed"; if (copy.minPer30==null) copy.minPer30=0; if (copy.maxPer30==null) copy.maxPer30=0; setSForm(copy); };
-  const addNewStyle = () => { setEsId("new"); setSForm({ id:"s_"+Date.now(), name:"", icon:"🎯", desc:"", priceMode:"fixed", price30:0, minPer30:0, maxPer30:0, extras:[] }); };
+  const editStyle = s => { setEsId(s.id); const copy = JSON.parse(JSON.stringify(s)); if (!copy.priceMode) copy.priceMode = "fixed"; if (copy.minPer30==null) copy.minPer30=0; if (copy.maxPer30==null) copy.maxPer30=0; if (copy.unitDur==null) copy.unitDur=30; if (copy.pricePerPiece==null) copy.pricePerPiece=0; setSForm(copy); };
+  const addNewStyle = () => { setEsId("new"); setSForm({ id:"s_"+Date.now(), name:"", icon:"🎯", desc:"", priceMode:"fixed", price30:0, minPer30:0, maxPer30:0, extras:[], unitDur:30, pricePerPiece:0 }); };
   const saveStyleForm = () => {
     if (!sForm || !sForm.name.trim()) return;
     if (esId === "new") setEStyles([...eStyles, sForm]);
@@ -334,12 +340,12 @@ export default function App({ user, onSignOut }) {
           {/* Styles */}
           <div style={{marginBottom:"24px"}}><label style={secL}>نوع الخدمة</label>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
-              {styles.map(s=>(<button key={s.id} onClick={()=>{setSelStyle(s.id);setExtState({});}} style={{padding:"14px 12px",border:"1px solid",borderColor:selStyle===s.id?"#d4af37":"rgba(255,255,255,0.06)",background:selStyle===s.id?"rgba(212,175,55,0.08)":"rgba(255,255,255,0.02)",borderRadius:"12px",cursor:"pointer",textAlign:"right",transition:"all 0.3s"}}
+              {styles.map(s=>(<button key={s.id} onClick={()=>{setSelStyle(s.id);setExtState({});setQty(1);}} style={{padding:"14px 12px",border:"1px solid",borderColor:selStyle===s.id?"#d4af37":"rgba(255,255,255,0.06)",background:selStyle===s.id?"rgba(212,175,55,0.08)":"rgba(255,255,255,0.02)",borderRadius:"12px",cursor:"pointer",textAlign:"right",transition:"all 0.3s"}}
                 onMouseEnter={e=>{if(selStyle!==s.id)e.currentTarget.style.borderColor="rgba(212,175,55,0.3)";}}
                 onMouseLeave={e=>{if(selStyle!==s.id)e.currentTarget.style.borderColor="rgba(255,255,255,0.06)";}}>
                 <div style={{fontSize:"18px",marginBottom:"4px"}}>{s.icon}</div>
                 <div style={{fontSize:"14px",color:selStyle===s.id?"#f5f3ef":"#bbb",fontWeight:500,marginBottom:"3px"}}>{s.name}</div>
-                <div style={{fontSize:"11px",color:"#555"}}>{s.priceMode==="range"?`$${s.minPer30}–$${s.maxPer30}/30ث`:`$${s.price30}/30ث`}</div>
+                <div style={{fontSize:"11px",color:"#555"}}>{s.priceMode==="piece"?`$${s.pricePerPiece||0}/قطعة`:s.priceMode==="range"?`$${s.minPer30}–$${s.maxPer30}/${s.unitDur||30}ث`:`$${s.price30}/${s.unitDur||30}ث`}</div>
                 {s.extras?.length>0&&<div style={{fontSize:"10px",color:"#444",marginTop:"4px"}}>{s.extras.length} إضافات</div>}
               </button>))}
             </div>
@@ -348,11 +354,19 @@ export default function App({ user, onSignOut }) {
           {selStyle&&style&&<>
             {/* Duration / count */}
             <div style={{marginBottom:"24px",animation:"fadeIn 0.3s"}}>
-              <>
+              {style.priceMode==="piece" ? (<>
+                <label style={secL}>الكمية</label>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"20px",padding:"8px 0"}}>
+                  <button onClick={()=>setQty(q=>Math.max(1,q-1))} style={miniBtn}>−</button>
+                  <span style={{fontSize:"32px",color:"#d4af37",minWidth:"60px",textAlign:"center",fontWeight:300}}>{qty}</span>
+                  <button onClick={()=>setQty(q=>q+1)} style={miniBtn}>+</button>
+                </div>
+                <div style={{textAlign:"center",fontSize:"11px",color:"#555",marginTop:"4px"}}>قطعة</div>
+              </>) : (<>
                 <label style={secL}>المدة: {dur} ثانية {dur>=60?`(${(dur/60).toFixed(1)} دقيقة)`:""}</label>
                 <input type="range" min="10" max="300" step="5" value={dur} onChange={e=>setDur(+e.target.value)} style={slider(dur,10,300,"#d4af37")}/>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:"11px",color:"#555",marginTop:"6px"}}><span>10 ثانية</span><span>5 دقائق</span></div>
-              </>
+              </>)}
             </div>
 
             {/* Per-style extras */}
@@ -545,16 +559,22 @@ export default function App({ user, onSignOut }) {
                 <div>
                   <label style={sLbl}>نوع التسعير</label>
                   <div style={{display:"flex",marginBottom:"10px"}}>
-                    {[{v:"fixed",l:"سعر ثابت"},{v:"range",l:"مدى سعري"}].map(o=>(
-                      <button key={o.v} onClick={()=>setSForm({...sForm,priceMode:o.v})} style={togBtn(sForm.priceMode===o.v,o.v==="fixed")}>{o.l}</button>
+                    {[{v:"fixed",l:"سعر ثابت"},{v:"range",l:"مدى سعري"},{v:"piece",l:"تسعير بالقطعة"}].map((o,i,arr)=>(
+                      <button key={o.v} onClick={()=>setSForm({...sForm,priceMode:o.v})} style={{...togBtn(sForm.priceMode===o.v,false),borderRadius:i===0?"8px 0 0 8px":i===arr.length-1?"0 8px 8px 0":"0"}}>{o.l}</button>
                     ))}
                   </div>
-                  {sForm.priceMode==="range"?
+                  {sForm.priceMode==="piece" ? (
+                    <div><label style={sLbl}>السعر لكل قطعة ($)</label><NF val={sForm.pricePerPiece||0} set={v=>setSForm({...sForm,pricePerPiece:v})}/></div>
+                  ) : sForm.priceMode==="range" ? (<>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
-                      <div><label style={sLbl}>الحد الأدنى/30ث ($)</label><NF val={sForm.minPer30||0} set={v=>setSForm({...sForm,minPer30:v})}/></div>
-                      <div><label style={sLbl}>الحد الأقصى/30ث ($)</label><NF val={sForm.maxPer30||0} set={v=>setSForm({...sForm,maxPer30:v})}/></div>
+                      <div><label style={sLbl}>الحد الأدنى/وحدة ($)</label><NF val={sForm.minPer30||0} set={v=>setSForm({...sForm,minPer30:v})}/></div>
+                      <div><label style={sLbl}>الحد الأقصى/وحدة ($)</label><NF val={sForm.maxPer30||0} set={v=>setSForm({...sForm,maxPer30:v})}/></div>
                     </div>
-                  :<div><label style={sLbl}>السعر لكل 30 ثانية ($)</label><NF val={sForm.price30||0} set={v=>setSForm({...sForm,price30:v})}/></div>}
+                    <div style={{marginTop:"8px"}}><label style={sLbl}>مدة الوحدة (ثانية)</label><NF val={sForm.unitDur||30} set={v=>setSForm({...sForm,unitDur:v})}/></div>
+                  </>) : (<>
+                    <div><label style={sLbl}>السعر لكل وحدة ($)</label><NF val={sForm.price30||0} set={v=>setSForm({...sForm,price30:v})}/></div>
+                    <div style={{marginTop:"8px"}}><label style={sLbl}>مدة الوحدة (ثانية)</label><NF val={sForm.unitDur||30} set={v=>setSForm({...sForm,unitDur:v})}/></div>
+                  </>)}
                 </div>
                 <div style={{borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:"12px",marginTop:"4px"}}>
                   <label style={{...sLbl,fontSize:"12px",color:"#d4af37"}}>إضافات هذا الاستايل</label>
@@ -574,7 +594,7 @@ export default function App({ user, onSignOut }) {
                 <div style={{fontSize:"22px"}}>{s.icon}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:"13px",fontWeight:500,color:"#eee"}}>{s.name}</div>
-                  <div style={{fontSize:"11px",color:"#666"}}>{s.priceMode==="range"?`$${s.minPer30||0}–$${s.maxPer30||0}/30ث`:`$${s.price30||0}/30ث`}{s.extras?.length>0?` · ${s.extras.length} إضافات`:""}</div>
+                  <div style={{fontSize:"11px",color:"#666"}}>{s.priceMode==="piece"?`$${s.pricePerPiece||0}/قطعة`:s.priceMode==="range"?`$${s.minPer30||0}–$${s.maxPer30||0}/${s.unitDur||30}ث`:`$${s.price30||0}/${s.unitDur||30}ث`}{s.extras?.length>0?` · ${s.extras.length} إضافات`:""}</div>
                 </div>
                 <button onClick={()=>editStyle(s)} style={{padding:"5px 10px",borderRadius:"6px",fontSize:"11px",cursor:"pointer",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.08)",color:"#d4af37"}}>تعديل</button>
                 <button onClick={()=>delStyle(s.id)} style={{padding:"5px 10px",borderRadius:"6px",fontSize:"11px",cursor:"pointer",border:"1px solid rgba(220,50,50,0.2)",background:"rgba(220,50,50,0.08)",color:"#c44"}}>حذف</button>
