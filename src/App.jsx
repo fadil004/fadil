@@ -41,13 +41,13 @@ const fmt = n => Math.round(n).toLocaleString("en-US");
 // ── Reusable number field (fixes the typing bug) ──
 function NF({ val, set, sty }) {
   const [txt, setTxt] = useState(String(val ?? ""));
-  const valRef = useState({ last: val })[0];
+  const lastVal = useRef(val);
   useEffect(() => {
-    if (val !== valRef.last) { setTxt(String(val ?? "")); valRef.last = val; }
+    if (val !== lastVal.current) { setTxt(String(val ?? "")); lastVal.current = val; }
   }, [val]);
   return <input type="text" inputMode="decimal" value={txt}
-    onChange={e => { setTxt(e.target.value); const n = parseFloat(e.target.value); if (!isNaN(n)) { valRef.last = n; set(n); } }}
-    onBlur={() => { const n = num(txt); setTxt(String(n)); valRef.last = n; set(n); }}
+    onChange={e => { setTxt(e.target.value); const n = parseFloat(e.target.value); if (!isNaN(n)) { lastVal.current = n; set(n); } }}
+    onBlur={() => { const n = num(txt); setTxt(String(n)); lastVal.current = n; set(n); }}
     style={{ ...inp, direction: "ltr", textAlign: "center", ...sty }} />;
 }
 
@@ -75,7 +75,6 @@ export default function App({ user, onSignOut }) {
   const [cur, setCur] = useState("USD");
   const [rate, setRate] = useState(1500);
   const [withTeam, setWithTeam] = useState(false);
-  const [dCnt, setDCnt] = useState(1);
   const [extState, setExtState] = useState({});
 
   // Team
@@ -104,6 +103,10 @@ export default function App({ user, onSignOut }) {
   const [eRate, setERate] = useState(1500);
   const [esId, setEsId] = useState(null);
   const [sForm, setSForm] = useState(null);
+
+  // ── Sync error toast ──
+  const [syncErr, setSyncErr] = useState(false);
+  const showSyncErr = () => { setSyncErr(true); setTimeout(() => setSyncErr(false), 4000); };
 
   // ── Supabase Storage ──
   const [loading, setLoading] = useState(true);
@@ -141,10 +144,10 @@ export default function App({ user, onSignOut }) {
     return () => supabase.removeChannel(channel);
   }, [user]);
 
-  const svTeam = t => { const p = prevTeamRef.current; setTeam(t); prevTeamRef.current = t; syncTeam(p, t, user.id).catch(console.error); };
-  const svLogs = l => { const p = prevLogsRef.current; setLogs(l); prevLogsRef.current = l; syncLogs(p, l, user.id).catch(console.error); };
-  const svProf = p => { const prev = prevProfilesRef.current; setProfiles(p); prevProfilesRef.current = p; syncProfiles(prev, p, user.id).catch(console.error); };
-  const svRate = r => { setRate(r); saveRate(r, user.id).catch(console.error); };
+  const svTeam = t => { const p = prevTeamRef.current; setTeam(t); prevTeamRef.current = t; syncTeam(p, t, user.id).catch(e => { console.error(e); showSyncErr(); }); };
+  const svLogs = l => { const p = prevLogsRef.current; setLogs(l); prevLogsRef.current = l; syncLogs(p, l, user.id).catch(e => { console.error(e); showSyncErr(); }); };
+  const svProf = p => { const prev = prevProfilesRef.current; setProfiles(p); prevProfilesRef.current = p; syncProfiles(prev, p, user.id).catch(e => { console.error(e); showSyncErr(); }); };
+  const svRate = r => { setRate(r); saveRate(r, user.id).catch(e => { console.error(e); showSyncErr(); }); };
 
   const style = styles.find(s => s.id === selStyle);
   const styleExtras = style?.extras || [];
@@ -212,11 +215,10 @@ export default function App({ user, onSignOut }) {
     logs.forEach(l => {
       const d = new Date(l.date);
       const k = `${d.getFullYear()}-${d.getMonth()}`;
-      if (!m[k]) m[k] = { y:d.getFullYear(), mo:d.getMonth(), cnt:0, estMin:0, estMax:0, actualIn:0, actualOut:0, completedCnt:0 };
+      if (!m[k]) m[k] = { y:d.getFullYear(), mo:d.getMonth(), cnt:0, est:0, actualIn:0, actualOut:0, completedCnt:0 };
       m[k].cnt++;
       const r = l.currency==="IQD" ? (rate||1500) : 1;
-      m[k].estMin += l.currency==="IQD" ? Math.round(l.priceMin/r) : l.priceMin;
-      m[k].estMax += l.currency==="IQD" ? Math.round(l.priceMax/r) : l.priceMax;
+      m[k].est += l.currency==="IQD" ? Math.round(l.priceMin/r) : l.priceMin;
       if (l.completed && l.finalReceived != null) {
         m[k].completedCnt++;
         m[k].actualIn += l.finalReceived;
@@ -419,13 +421,13 @@ export default function App({ user, onSignOut }) {
                 <div style={{fontSize:"16px",fontWeight:500,color:"#eee"}}>{MONTHS_AR[m.mo]} {m.y}</div>
                 <div style={{fontSize:"12px",color:"#888",padding:"4px 10px",background:"rgba(255,255,255,0.04)",borderRadius:"6px"}}>{m.cnt} مشروع</div>
               </div>
-              <div style={{marginBottom:"8px"}}><div style={{fontSize:"11px",color:"#888",marginBottom:"4px"}}>السعر التقريبي:</div><div style={{fontSize:"22px",fontWeight:300,color:"#d4af37",direction:"ltr",textAlign:"right"}}>${fmt(m.estMin)} — ${fmt(m.estMax)}</div></div>
+              <div style={{marginBottom:"8px"}}><div style={{fontSize:"11px",color:"#888",marginBottom:"4px"}}>السعر التقريبي:</div><div style={{fontSize:"22px",fontWeight:300,color:"#d4af37",direction:"ltr",textAlign:"right"}}>${fmt(m.est)}</div></div>
               {m.completedCnt>0&&(<div style={{padding:"12px",background:"rgba(52,211,153,0.05)",borderRadius:"10px",border:"1px solid rgba(52,211,153,0.15)"}}>
-                <div style={{fontSize:"11px",color:"#34d399",marginBottom:"6px"}}>✅ مكتمل: {m.completedCnt} مشروع</div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:"13px"}}>
-                  <span style={{color:"#34d399"}}>استلمت: ${fmt(m.actualIn)}</span>
-                  <span style={{color:"#fbbf24"}}>دفعت فريق: ${fmt(m.actualOut)}</span>
-                  <span style={{color:"#d4af37",fontWeight:600}}>صافي: ${fmt(m.actualIn - m.actualOut)}</span>
+                <div style={{fontSize:"11px",color:"#34d399",marginBottom:"8px"}}>✅ مكتمل: {m.completedCnt} مشروع</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px",textAlign:"center"}}>
+                  <div style={{padding:"8px 4px",background:"rgba(52,211,153,0.08)",borderRadius:"8px"}}><div style={{fontSize:"10px",color:"#888",marginBottom:"3px"}}>استلمت</div><div style={{fontSize:"13px",color:"#34d399",fontWeight:600}}>${fmt(m.actualIn)}</div></div>
+                  <div style={{padding:"8px 4px",background:"rgba(251,191,36,0.08)",borderRadius:"8px"}}><div style={{fontSize:"10px",color:"#888",marginBottom:"3px"}}>دفعت فريق</div><div style={{fontSize:"13px",color:"#fbbf24",fontWeight:600}}>${fmt(m.actualOut)}</div></div>
+                  <div style={{padding:"8px 4px",background:"rgba(212,175,55,0.08)",borderRadius:"8px"}}><div style={{fontSize:"10px",color:"#888",marginBottom:"3px"}}>الصافي</div><div style={{fontSize:"13px",color:m.actualIn-m.actualOut>=0?"#34d399":"#ef4444",fontWeight:600}}>${fmt(m.actualIn-m.actualOut)}</div></div>
                 </div>
               </div>)}
             </div>))}
@@ -448,7 +450,7 @@ export default function App({ user, onSignOut }) {
                   {log.urgency>0&&<span style={tag("rgba(251,191,36,0.1)","#fbbf24")}>+{log.urgency}%</span>}
                 </div>
                 {log.extras?.length>0&&<div style={{display:"flex",gap:"4px",flexWrap:"wrap",marginBottom:"6px"}}>{log.extras.map((ex,i)=>(<span key={i} style={tag("rgba(52,211,153,0.08)","#34d399")}>{ex.icon} {ex.name} ×{ex.qty}</span>))}</div>}
-                <div style={{fontSize:"17px",fontWeight:400,color:"#d4af37",direction:"ltr",textAlign:"right"}}>{log.currency==="USD"?"$":"د.ع"} {fmt(log.priceMin)} — {fmt(log.priceMax)}</div>
+                <div style={{fontSize:"17px",fontWeight:400,color:"#d4af37",direction:"ltr",textAlign:"right"}}>{log.currency==="USD"?"$":"د.ع"} {fmt(log.priceMin)}</div>
                 {log.teamMembers?.length>0&&<div style={{marginTop:"6px",fontSize:"11px",color:"#777"}}>الفريق: {log.teamMembers.map(m=>m.name).join(" · ")}</div>}
                 {log.notes&&<div style={{marginTop:"4px",fontSize:"12px",color:"#555",fontStyle:"italic"}}>"{log.notes}"</div>}
 
@@ -474,7 +476,7 @@ export default function App({ user, onSignOut }) {
         <h2 style={mTitle}>📋 حفظ بالسجل</h2>
         <div style={{marginBottom:"14px"}}><label style={sLbl}>اسم العميل *</label><input value={sf.client} onChange={e=>setSf({...sf,client:e.target.value})} placeholder="اكتب اسم العميل..." style={{...inp,padding:"12px 14px",fontSize:"14px"}} autoFocus/></div>
         <div style={{marginBottom:"14px"}}><label style={sLbl}>ملاحظات</label><input value={sf.notes} onChange={e=>setSf({...sf,notes:e.target.value})} placeholder="اختياري..." style={{...inp,padding:"12px 14px"}}/></div>
-        <div style={{...previewBox}}>{ap.emoji} {style?.icon} {style?.name} · <span style={{color:"#d4af37"}}>{fmt(res.min)} - {fmt(res.max)} {sym}</span></div>
+        <div style={{...previewBox}}>{ap.emoji} {style?.icon} {style?.name} · <span style={{color:"#d4af37"}}>{fmt(res.total)} {sym}</span></div>
         <div style={{display:"flex",gap:"10px"}}><button onClick={doSave} style={{...goldBtn,flex:1,opacity:sf.client.trim()?1:0.4,cursor:sf.client.trim()?"pointer":"not-allowed"}}>حفظ</button><button onClick={()=>setShowSave(false)} style={cancelBtn}>إلغاء</button></div>
       </Modal>}
 
@@ -562,6 +564,7 @@ export default function App({ user, onSignOut }) {
         </div>
       </div></div>)}
 
+      {syncErr&&<div style={{position:"fixed",bottom:"80px",left:"50%",transform:"translateX(-50%)",background:"rgba(239,68,68,0.95)",color:"#fff",padding:"10px 20px",borderRadius:"10px",fontSize:"13px",zIndex:200,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,0.4)"}}>⚠️ فشل الحفظ، تحقق من الاتصال</div>}
       <style>{`input[type="range"]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;background:#d4af37;border-radius:50%;cursor:pointer;box-shadow:0 0 12px rgba(212,175,55,0.4)}@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}input:focus{border-color:rgba(212,175,55,0.4)!important;outline:none}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.2);border-radius:3px}`}</style>
     </div>
   );
@@ -624,7 +627,6 @@ const secL={fontSize:"12px",color:"#888",letterSpacing:"2px",display:"block",mar
 const sLbl={fontSize:"11px",color:"#777",display:"block",marginBottom:"6px"};
 const sm={fontSize:"12px",color:"#888"};
 const goldLine={width:"40px",height:"1px",background:"linear-gradient(90deg,transparent,#d4af37,transparent)",margin:"14px auto 0"};
-const stepBtn={width:"40px",height:"40px",borderRadius:"10px",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.08)",color:"#d4af37",fontSize:"20px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"};
 const miniBtn={width:"28px",height:"28px",borderRadius:"6px",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.08)",color:"#d4af37",fontSize:"16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"};
 const iconBtn={background:"none",border:"none",color:"#666",cursor:"pointer",fontSize:"12px",padding:"2px 6px"};
 const pillBtn={background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",color:"#888",borderRadius:"10px",padding:"8px 14px",cursor:"pointer",fontSize:"13px"};
