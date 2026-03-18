@@ -62,7 +62,6 @@ export default function AuthPage({ onLogin }) {
       alignItems: "center",
       justifyContent: "center",
       padding: "20px",
-      fontFamily: "'IBM Plex Sans Arabic', sans-serif",
       direction: "rtl",
     }}>
       {/* Background glow */}
@@ -190,5 +189,4 @@ const inputStyle = {
   fontSize: "14px",
   outline: "none",
   boxSizing: "border-box",
-  fontFamily: "'IBM Plex Sans Arabic', sans-serif",
 };

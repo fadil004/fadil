@@ -280,7 +280,7 @@ export default function App({ user, onSignOut }) {
   // ── RENDER ──
   // ══════════════════════════════════════════════
   return (
-    <div style={{direction:"rtl",minHeight:"100vh",background:"linear-gradient(145deg,#0a0a0f,#12121a,#0d0d14)",color:"#e8e6e1",fontFamily:"'IBM Plex Sans Arabic',sans-serif",position:"relative"}}>
+    <div style={{direction:"rtl",minHeight:"100vh",background:"linear-gradient(145deg,#0a0a0f,#12121a,#0d0d14)",color:"#e8e6e1",position:"relative"}}>
       <div style={{position:"fixed",top:"-200px",left:"-200px",width:"500px",height:"500px",background:"radial-gradient(circle,rgba(212,175,55,0.06),transparent 70%)",pointerEvents:"none",zIndex:0}}/>
 
       {/* Nav */}
