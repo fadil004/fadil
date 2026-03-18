@@ -239,7 +239,7 @@ export default function App({ user, onSignOut }) {
   const saveSet = () => {
     const up = profiles.map(p => p.id === apId ? { ...p, styles: eStyles } : p);
     svProf(up); svRate(eRate);
-    if (selStyle && !eStyles.find(s => s.id === selStyle)) setSelStyle(null);
+    if (selStyle && !eStyles.find(s => s.id === selStyle)) { setSelStyle(null); setExtState({}); }
     setShowSet(false);
   };
 
@@ -300,7 +300,7 @@ export default function App({ user, onSignOut }) {
             <button onClick={()=>setShowPM(!showPM)} style={{...pillBtn,background:"rgba(212,175,55,0.08)",borderColor:"rgba(212,175,55,0.25)",color:"#d4af37"}}>{ap.emoji} {ap.name} ▾</button>
             {showPM&&(<div style={{position:"absolute",top:"44px",right:0,background:"#1a1a24",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"12px",padding:"8px",minWidth:"200px",boxShadow:"0 12px 40px rgba(0,0,0,0.5)",animation:"fadeIn 0.2s",zIndex:20}}>
               {profiles.map(p=>(<div key={p.id} style={{display:"flex",alignItems:"center",gap:"8px",padding:"10px 12px",borderRadius:"8px",cursor:"pointer",background:apId===p.id?"rgba(212,175,55,0.1)":"transparent"}}>
-                <div onClick={()=>{setApId(p.id);setShowPM(false);setSelStyle(null);setExtState({});}} style={{flex:1,display:"flex",alignItems:"center",gap:"8px"}}><span>{p.emoji}</span><span style={{fontSize:"13px",color:apId===p.id?"#d4af37":"#bbb"}}>{p.name}</span></div>
+                <div onClick={()=>{setApId(p.id);setShowPM(false);setSelStyle(null);setExtState({});setSelMem([]);setMemCost({});setWithTeam(false);}} style={{flex:1,display:"flex",alignItems:"center",gap:"8px"}}><span>{p.emoji}</span><span style={{fontSize:"13px",color:apId===p.id?"#d4af37":"#bbb"}}>{p.name}</span></div>
                 <button onClick={e=>{e.stopPropagation();setEpId(p.id);setPf({name:p.name,emoji:p.emoji});setShowPE(true);setShowPM(false);}} style={iconBtn}>✎</button>
                 {profiles.length>1&&<button onClick={e=>{e.stopPropagation();delProf(p.id);}} style={{...iconBtn,color:"#844"}}>✕</button>}
               </div>))}

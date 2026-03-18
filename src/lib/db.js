@@ -101,7 +101,7 @@ export async function loadLogs(userId) {
 export async function loadSettings(userId) {
   const { data } = await supabase
     .from('user_settings')
-    .select('exchange_rate')
+    .select('exchange_rate, welcomed')
     .eq('user_id', userId)
     .maybeSingle();
   return { rate: data?.exchange_rate ?? 1500, welcomed: data?.welcomed ?? false };
