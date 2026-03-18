@@ -104,7 +104,7 @@ export async function loadSettings(userId) {
     .select('exchange_rate')
     .eq('user_id', userId)
     .maybeSingle();
-  return { rate: data?.exchange_rate ?? 1500 };
+  return { rate: data?.exchange_rate ?? 1500, welcomed: data?.welcomed ?? false };
 }
 
 export async function loadUserData(userId) {
@@ -114,7 +114,15 @@ export async function loadUserData(userId) {
     loadLogs(userId),
     loadSettings(userId),
   ]);
-  return { profiles, team, logs, rate: settings.rate };
+  return { profiles, team, logs, rate: settings.rate, welcomed: settings.welcomed };
+}
+
+export async function saveWelcomed(userId) {
+  await supabase.from('user_settings').upsert({
+    user_id: userId,
+    welcomed: true,
+    updated_at: new Date().toISOString(),
+  });
 }
 
 // ─────────────────────────────────────────

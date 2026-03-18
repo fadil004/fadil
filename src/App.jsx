@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { supabase } from './lib/supabase';
-import { loadUserData, loadTeam, loadLogs, loadProfiles, syncTeam, syncLogs, syncProfiles, saveRate } from './lib/db';
+import { loadUserData, loadTeam, loadLogs, loadProfiles, syncTeam, syncLogs, syncProfiles, saveRate, saveWelcomed } from './lib/db';
 
 // ── Constants ──
 const ICONS = ["🎨","◆","🎬","✂️","✦","🎯","🔥","💎","🎭","📐","🖌️","⚡","🌟","📸","🎵","🧩"];
@@ -56,6 +56,7 @@ function NF({ val, set, sty }) {
 // ══════════════════════════════════════════════
 export default function App({ user, onSignOut }) {
   const [pg, setPg] = useState("calc");
+  const [showWelcome, setShowWelcome] = useState(false);
 
   // Profiles
   const [profiles, setProfiles] = useState(INIT_PROFILES);
@@ -127,6 +128,7 @@ export default function App({ user, onSignOut }) {
         if (data.team) { setTeam(data.team); prevTeamRef.current = data.team; }
         if (data.logs) { setLogs(data.logs); prevLogsRef.current = data.logs; }
         if (data.rate) setRate(data.rate);
+        if (!data.welcomed) setShowWelcome(true);
       } catch (e) { console.error('Load error:', e); }
       finally { setLoading(false); }
     })();
@@ -565,7 +567,11 @@ export default function App({ user, onSignOut }) {
       </div></div>)}
 
       {syncErr&&<div style={{position:"fixed",bottom:"80px",left:"50%",transform:"translateX(-50%)",background:"rgba(239,68,68,0.95)",color:"#fff",padding:"10px 20px",borderRadius:"10px",fontSize:"13px",zIndex:200,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,0.4)"}}>⚠️ فشل الحفظ، تحقق من الاتصال</div>}
-      <style>{`input[type="range"]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;background:#d4af37;border-radius:50%;cursor:pointer;box-shadow:0 0 12px rgba(212,175,55,0.4)}@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}input:focus{border-color:rgba(212,175,55,0.4)!important;outline:none}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.2);border-radius:3px}`}</style>
+
+      {/* ═══ WELCOME SCREEN ═══ */}
+      {showWelcome&&<WelcomeScreen onDismiss={()=>{ setShowWelcome(false); saveWelcomed(user.id).catch(console.error); }}/>}
+
+      <style>{`input[type="range"]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;background:#d4af37;border-radius:50%;cursor:pointer;box-shadow:0 0 12px rgba(212,175,55,0.4)}@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes welcomeIn{from{opacity:0;transform:scale(0.96) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes shimmer{0%,100%{opacity:0.7}50%{opacity:1}}input:focus{border-color:rgba(212,175,55,0.4)!important;outline:none}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.2);border-radius:3px}`}</style>
     </div>
   );
 }
@@ -573,6 +579,53 @@ export default function App({ user, onSignOut }) {
 // ── Modal wrapper ──
 function Modal({ close, children }) {
   return (<div style={overlay} onClick={close}><div onClick={e=>e.stopPropagation()} style={{background:"#16161e",borderRadius:"18px",padding:"28px",border:"1px solid rgba(255,255,255,0.08)",maxWidth:"440px",width:"100%",direction:"rtl",maxHeight:"80vh",overflowY:"auto"}}>{children}</div></div>);
+}
+
+// ── Welcome Screen ──
+function WelcomeScreen({ onDismiss }) {
+  return (
+    <div style={{position:"fixed",inset:0,background:"linear-gradient(145deg,#0a0a0f,#12121a,#0d0d14)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px",direction:"rtl"}}>
+      <div style={{maxWidth:"400px",width:"100%",textAlign:"center",animation:"welcomeIn 0.6s ease-out"}}>
+
+        {/* Logo mark */}
+        <div style={{fontSize:"52px",marginBottom:"8px",animation:"shimmer 2.5s ease-in-out infinite"}}>🧮</div>
+
+        {/* App name */}
+        <div style={{fontSize:"11px",letterSpacing:"6px",color:"#d4af37",marginBottom:"10px",fontWeight:600,animation:"shimmer 2.5s ease-in-out infinite"}}>حاسبة التسعير</div>
+        <h1 style={{fontSize:"28px",fontWeight:300,color:"#f5f3ef",margin:"0 0 6px"}}>أهلاً بيك 👋</h1>
+        <div style={{width:"50px",height:"1px",background:"linear-gradient(90deg,transparent,#d4af37,transparent)",margin:"0 auto 20px"}}/>
+
+        {/* Description */}
+        <p style={{fontSize:"14px",color:"#999",lineHeight:1.8,margin:"0 0 32px",padding:"0 8px"}}>
+          أداة ذكية لتسعير مشاريع الفيديو والموشن.<br/>
+          احسب أسعارك، نظّم فريقك، وتابع أرباحك<br/>
+          <span style={{color:"#d4af37"}}>— كلشي بمكان واحد</span>
+        </p>
+
+        {/* Feature highlights */}
+        <div style={{display:"flex",flexDirection:"column",gap:"12px",marginBottom:"36px",textAlign:"right"}}>
+          {[
+            {icon:"🧮", text:"احسب سعر مشروعك بثواني"},
+            {icon:"👥", text:"نظّم فريقك وتكاليفهم"},
+            {icon:"📋", text:"سجّل مشاريعك وتابع أرباحك الشهرية"},
+          ].map((f,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:"14px",padding:"14px 16px",background:"rgba(212,175,55,0.05)",borderRadius:"12px",border:"1px solid rgba(212,175,55,0.12)",animation:`welcomeIn 0.6s ease-out ${0.1+i*0.1}s both`}}>
+              <span style={{fontSize:"24px",flexShrink:0}}>{f.icon}</span>
+              <span style={{fontSize:"14px",color:"#ddd",fontWeight:400}}>{f.text}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <button onClick={onDismiss} style={{width:"100%",padding:"16px",borderRadius:"14px",border:"none",background:"linear-gradient(135deg,#d4af37,#b8962e)",color:"#0a0a0f",fontSize:"16px",fontWeight:700,cursor:"pointer",marginBottom:"20px",boxShadow:"0 8px 32px rgba(212,175,55,0.25)"}}>
+          يلا نبدأ ✨
+        </button>
+
+        {/* Footer credit */}
+        <div style={{fontSize:"12px",color:"#444"}}>صنع بواسطة المبرمج فاضل الكبير 🚀</div>
+      </div>
+    </div>
+  );
 }
 
 // ── Team Page ──
