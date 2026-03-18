@@ -14,21 +14,21 @@ const STATUS_MAP = {
 };
 
 const mkExtra = (name, icon, price) => ({ id: "ex_" + Date.now() + Math.random().toString(36).slice(2,6), name, icon, perUnit: price });
-const mkStyle = (name, icon, desc, min30, max30, isFixed=false, minF=0, maxF=0, extras=[]) => ({
+const mkStyle = (name, icon, desc, min30, max30, isFixed=false, fixedPrice=0, extras=[]) => ({
   id: "s_" + Date.now() + Math.random().toString(36).slice(2,6), name, icon, desc, isFixed,
-  minPer30: min30, maxPer30: max30, minFixed: minF, maxFixed: maxF,
+  minPer30: min30, maxPer30: max30, fixedPrice,
   extras: extras,
 });
 
 const INIT_STYLES = [
-  { id:"collage", name:"كولاج", icon:"🎨", desc:"تصميم + تحريك + أصوات + مونتاج", isFixed:false, minPer30:500, maxPer30:1000, minFixed:0, maxFixed:0,
+  { id:"collage", name:"كولاج", icon:"🎨", desc:"تصميم + تحريك + أصوات + مونتاج", isFixed:false, minPer30:500, maxPer30:1000, fixedPrice:0,
     extras:[{id:"ex_design",name:"تصميم",icon:"🎨",perUnit:30},{id:"ex_sound",name:"صوت وميكس",icon:"🎵",perUnit:50},{id:"ex_vo",name:"فويس اوفر",icon:"🎙️",perUnit:60}] },
-  { id:"flat", name:"فلات موشن", icon:"◆", desc:"تصميم وتحريك بسيط", isFixed:false, minPer30:300, maxPer30:750, minFixed:0, maxFixed:0,
+  { id:"flat", name:"فلات موشن", icon:"◆", desc:"تصميم وتحريك بسيط", isFixed:false, minPer30:300, maxPer30:750, fixedPrice:0,
     extras:[{id:"ex_design2",name:"تصميم",icon:"🎨",perUnit:25},{id:"ex_sound2",name:"صوت وميكس",icon:"🎵",perUnit:40}] },
-  { id:"mixed", name:"مكسد ميديا", icon:"🎬", desc:"فيديو + موشن", isFixed:false, minPer30:250, maxPer30:500, minFixed:0, maxFixed:0,
+  { id:"mixed", name:"مكسد ميديا", icon:"🎬", desc:"فيديو + موشن", isFixed:false, minPer30:250, maxPer30:500, fixedPrice:0,
     extras:[{id:"ex_mont",name:"مونتاج",icon:"✂️",perUnit:40},{id:"ex_sound3",name:"صوت",icon:"🎵",perUnit:35}] },
-  { id:"editing", name:"مونتاج", icon:"✂️", desc:"قص وترتيب وتنسيق", isFixed:false, minPer30:500, maxPer30:1000, minFixed:0, maxFixed:0, extras:[] },
-  { id:"graphics", name:"جرافكس دزاين", icon:"✦", desc:"بوستر / سوشال ميديا", isFixed:true, minPer30:0, maxPer30:0, minFixed:50, maxFixed:200, extras:[] },
+  { id:"editing", name:"مونتاج", icon:"✂️", desc:"قص وترتيب وتنسيق", isFixed:false, minPer30:500, maxPer30:1000, fixedPrice:0, extras:[] },
+  { id:"graphics", name:"جرافكس دزاين", icon:"✦", desc:"بوستر / سوشال ميديا", isFixed:true, minPer30:0, maxPer30:0, fixedPrice:50, extras:[] },
 ];
 const INIT_PROFILES = [{ id:"default", name:"الأساسي", emoji:"⚡", styles:JSON.parse(JSON.stringify(INIT_STYLES)) }];
 
@@ -164,7 +164,7 @@ export default function App({ user, onSignOut }) {
   const calc = useCallback(() => {
     if (!style) return { min:0, max:0, ft:0, et:0 };
     let min, max;
-    if (style.isFixed) { min = (style.minFixed||0)*dCnt; max = (style.maxFixed||0)*dCnt; }
+    if (style.isFixed) { const p = (style.fixedPrice||0)*dCnt; min = p; max = p; }
     else { const m = dur/30; min = style.minPer30*m; max = style.maxPer30*m; }
     min *= (1 + urg/100); max *= (1 + urg/100);
     min += extTotal; max += extTotal;
@@ -242,7 +242,7 @@ export default function App({ user, onSignOut }) {
   };
 
   const editStyle = s => { setEsId(s.id); setSForm(JSON.parse(JSON.stringify(s))); };
-  const addNewStyle = () => { setEsId("new"); setSForm({ id:"s_"+Date.now(), name:"", icon:"🎯", desc:"", isFixed:false, minPer30:0, maxPer30:0, minFixed:0, maxFixed:0, extras:[] }); };
+  const addNewStyle = () => { setEsId("new"); setSForm({ id:"s_"+Date.now(), name:"", icon:"🎯", desc:"", isFixed:false, minPer30:0, maxPer30:0, fixedPrice:0, extras:[] }); };
   const saveStyleForm = () => {
     if (!sForm || !sForm.name.trim()) return;
     if (esId === "new") setEStyles([...eStyles, sForm]);
@@ -278,7 +278,7 @@ export default function App({ user, onSignOut }) {
   // ── RENDER ──
   // ══════════════════════════════════════════════
   return (
-    <div style={{direction:"rtl",minHeight:"100vh",background:"linear-gradient(145deg,#0a0a0f,#12121a,#0d0d14)",color:"#e8e6e1",fontFamily:"'Segoe UI',Tahoma,sans-serif",position:"relative"}}>
+    <div style={{direction:"rtl",minHeight:"100vh",background:"linear-gradient(145deg,#0a0a0f,#12121a,#0d0d14)",color:"#e8e6e1",fontFamily:"'IBM Plex Sans Arabic',sans-serif",position:"relative"}}>
       <div style={{position:"fixed",top:"-200px",left:"-200px",width:"500px",height:"500px",background:"radial-gradient(circle,rgba(212,175,55,0.06),transparent 70%)",pointerEvents:"none",zIndex:0}}/>
 
       {/* Nav */}
@@ -330,7 +330,7 @@ export default function App({ user, onSignOut }) {
                 onMouseLeave={e=>{if(selStyle!==s.id)e.currentTarget.style.borderColor="rgba(255,255,255,0.06)";}}>
                 <div style={{fontSize:"18px",marginBottom:"4px"}}>{s.icon}</div>
                 <div style={{fontSize:"14px",color:selStyle===s.id?"#f5f3ef":"#bbb",fontWeight:500,marginBottom:"3px"}}>{s.name}</div>
-                <div style={{fontSize:"11px",color:"#555"}}>{s.isFixed?`$${s.minFixed}-${s.maxFixed}/قطعة`:`$${s.minPer30}-${s.maxPer30}/30ث`}</div>
+                <div style={{fontSize:"11px",color:"#555"}}>{s.isFixed?`$${s.fixedPrice}/قطعة`:`$${s.minPer30}-${s.maxPer30}/30ث`}</div>
                 {s.extras?.length>0&&<div style={{fontSize:"10px",color:"#444",marginTop:"4px"}}>{s.extras.length} إضافات</div>}
               </button>))}
             </div>
@@ -395,11 +395,17 @@ export default function App({ user, onSignOut }) {
             <div style={{background:"linear-gradient(135deg,rgba(212,175,55,0.06),rgba(212,175,55,0.02))",border:"1px solid rgba(212,175,55,0.2)",borderRadius:"16px",padding:"24px",textAlign:"center",marginTop:"8px"}}>
               <div style={{fontSize:"11px",letterSpacing:"3px",color:"#888",marginBottom:"14px"}}>السعر المقترح</div>
               <div style={{display:"flex",justifyContent:"center",alignItems:"baseline",gap:"10px",direction:"ltr",flexWrap:"wrap"}}>
-                <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
-                <span style={{fontSize:"38px",fontWeight:300,color:"#d4af37",lineHeight:1}}>{fmt(res.min)}</span>
-                <span style={{fontSize:"18px",color:"#666"}}>—</span>
-                <span style={{fontSize:"38px",fontWeight:300,color:"#d4af37",lineHeight:1}}>{fmt(res.max)}</span>
-                <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
+                {style?.isFixed ? (<>
+                  <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
+                  <span style={{fontSize:"38px",fontWeight:300,color:"#d4af37",lineHeight:1}}>{fmt(res.min)}</span>
+                  <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
+                </>) : (<>
+                  <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
+                  <span style={{fontSize:"38px",fontWeight:300,color:"#d4af37",lineHeight:1}}>{fmt(res.min)}</span>
+                  <span style={{fontSize:"18px",color:"#666"}}>—</span>
+                  <span style={{fontSize:"38px",fontWeight:300,color:"#d4af37",lineHeight:1}}>{fmt(res.max)}</span>
+                  <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
+                </>)}
               </div>
               {(res.et>0||res.ft>0)&&<div style={{marginTop:"12px",display:"flex",gap:"8px",justifyContent:"center",flexWrap:"wrap"}}>
                 {res.et>0&&<span style={tagSm("rgba(52,211,153,0.08)","#34d399")}>إضافات: {fmt(res.et)} {sym}</span>}
@@ -527,10 +533,14 @@ export default function App({ user, onSignOut }) {
                 <div><label style={sLbl}>الاسم *</label><input value={sForm.name} onChange={e=>setSForm({...sForm,name:e.target.value})} style={inp}/></div>
                 <div><label style={sLbl}>الوصف</label><input value={sForm.desc} onChange={e=>setSForm({...sForm,desc:e.target.value})} style={inp}/></div>
                 <div><label style={sLbl}>التسعير</label><div style={{display:"flex"}}>{[{l:"حسب المدة",v:false},{l:"ثابت/قطعة",v:true}].map(o=>(<button key={String(o.v)} onClick={()=>setSForm({...sForm,isFixed:o.v})} style={togBtn(sForm.isFixed===o.v,!o.v)}>{o.l}</button>))}</div></div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
-                  <div><label style={sLbl}>الأدنى ($)</label><NF val={sForm.isFixed?sForm.minFixed:sForm.minPer30} set={v=>setSForm({...sForm,[sForm.isFixed?"minFixed":"minPer30"]:v})}/></div>
-                  <div><label style={sLbl}>الأعلى ($)</label><NF val={sForm.isFixed?sForm.maxFixed:sForm.maxPer30} set={v=>setSForm({...sForm,[sForm.isFixed?"maxFixed":"maxPer30"]:v})}/></div>
-                </div>
+                {sForm.isFixed ? (
+                  <div><label style={sLbl}>السعر الثابت ($)</label><NF val={sForm.fixedPrice} set={v=>setSForm({...sForm,fixedPrice:v})}/></div>
+                ) : (
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
+                    <div><label style={sLbl}>الأدنى ($)</label><NF val={sForm.minPer30} set={v=>setSForm({...sForm,minPer30:v})}/></div>
+                    <div><label style={sLbl}>الأعلى ($)</label><NF val={sForm.maxPer30} set={v=>setSForm({...sForm,maxPer30:v})}/></div>
+                  </div>
+                )}
                 <div style={{borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:"12px",marginTop:"4px"}}>
                   <label style={{...sLbl,fontSize:"12px",color:"#d4af37"}}>إضافات هذا الاستايل</label>
                   {sForm.extras.map((ex,i)=>(<div key={i} style={{display:"flex",gap:"6px",alignItems:"center",marginBottom:"8px",padding:"8px 10px",background:"rgba(255,255,255,0.02)",borderRadius:"8px",border:"1px solid rgba(255,255,255,0.06)"}}>
@@ -549,7 +559,7 @@ export default function App({ user, onSignOut }) {
                 <div style={{fontSize:"22px"}}>{s.icon}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:"13px",fontWeight:500,color:"#eee"}}>{s.name}</div>
-                  <div style={{fontSize:"11px",color:"#666"}}>{s.isFixed?`$${s.minFixed}-${s.maxFixed}/قطعة`:`$${s.minPer30}-${s.maxPer30}/30ث`}{s.extras?.length>0?` · ${s.extras.length} إضافات`:""}</div>
+                  <div style={{fontSize:"11px",color:"#666"}}>{s.isFixed?`$${s.fixedPrice}/قطعة`:`$${s.minPer30}-${s.maxPer30}/30ث`}{s.extras?.length>0?` · ${s.extras.length} إضافات`:""}</div>
                 </div>
                 <button onClick={()=>editStyle(s)} style={{padding:"5px 10px",borderRadius:"6px",fontSize:"11px",cursor:"pointer",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.08)",color:"#d4af37"}}>تعديل</button>
                 <button onClick={()=>delStyle(s.id)} style={{padding:"5px 10px",borderRadius:"6px",fontSize:"11px",cursor:"pointer",border:"1px solid rgba(220,50,50,0.2)",background:"rgba(220,50,50,0.08)",color:"#c44"}}>حذف</button>

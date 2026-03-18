@@ -24,8 +24,7 @@ function styleFromDB(s) {
     isFixed: s.is_fixed ?? false,
     minPer30: s.min_per30 ?? 0,
     maxPer30: s.max_per30 ?? 0,
-    minFixed: s.min_fixed ?? 0,
-    maxFixed: s.max_fixed ?? 0,
+    fixedPrice: s.min_fixed || s.max_fixed || 0,
     extras: (s.extras || [])
       .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
       .map(extraFromDB),
@@ -167,8 +166,8 @@ export async function syncProfiles(prevProfiles, nextProfiles, userId) {
           is_fixed: style.isFixed || false,
           min_per30: style.minPer30 || 0,
           max_per30: style.maxPer30 || 0,
-          min_fixed: style.minFixed || 0,
-          max_fixed: style.maxFixed || 0,
+          min_fixed: style.fixedPrice || 0,
+          max_fixed: 0,
           display_order: j,
         });
 
