@@ -14,21 +14,20 @@ const STATUS_MAP = {
 };
 
 const mkExtra = (name, icon, price) => ({ id: "ex_" + Date.now() + Math.random().toString(36).slice(2,6), name, icon, perUnit: price });
-const mkStyle = (name, icon, desc, price30=0, extras=[]) => ({
+const mkStyle = (name, icon, desc, priceMode="fixed", price30=0, minPer30=0, maxPer30=0, extras=[]) => ({
   id: "s_" + Date.now() + Math.random().toString(36).slice(2,6), name, icon, desc,
-  price30,
-  extras: extras,
+  priceMode, price30, minPer30, maxPer30, extras,
 });
 
 const INIT_STYLES = [
-  { id:"collage", name:"كولاج", icon:"🎨", desc:"تصميم + تحريك + أصوات + مونتاج", price30:500,
+  { id:"collage", name:"كولاج", icon:"🎨", desc:"تصميم + تحريك + أصوات + مونتاج", priceMode:"range", price30:0, minPer30:500, maxPer30:1000,
     extras:[{id:"ex_design",name:"تصميم",icon:"🎨",perUnit:30},{id:"ex_sound",name:"صوت وميكس",icon:"🎵",perUnit:50},{id:"ex_vo",name:"فويس اوفر",icon:"🎙️",perUnit:60}] },
-  { id:"flat", name:"فلات موشن", icon:"◆", desc:"تصميم وتحريك بسيط", price30:300,
+  { id:"flat", name:"فلات موشن", icon:"◆", desc:"تصميم وتحريك بسيط", priceMode:"range", price30:0, minPer30:300, maxPer30:750,
     extras:[{id:"ex_design2",name:"تصميم",icon:"🎨",perUnit:25},{id:"ex_sound2",name:"صوت وميكس",icon:"🎵",perUnit:40}] },
-  { id:"mixed", name:"مكسد ميديا", icon:"🎬", desc:"فيديو + موشن", price30:250,
+  { id:"mixed", name:"مكسد ميديا", icon:"🎬", desc:"فيديو + موشن", priceMode:"range", price30:0, minPer30:250, maxPer30:500,
     extras:[{id:"ex_mont",name:"مونتاج",icon:"✂️",perUnit:40},{id:"ex_sound3",name:"صوت",icon:"🎵",perUnit:35}] },
-  { id:"editing", name:"مونتاج", icon:"✂️", desc:"قص وترتيب وتنسيق", price30:500, extras:[] },
-  { id:"graphics", name:"جرافكس دزاين", icon:"✦", desc:"بوستر / سوشال ميديا", price30:50, extras:[] },
+  { id:"editing", name:"مونتاج", icon:"✂️", desc:"قص وترتيب وتنسيق", priceMode:"range", price30:0, minPer30:500, maxPer30:1000, extras:[] },
+  { id:"graphics", name:"جرافكس دزاين", icon:"✦", desc:"بوستر / سوشال ميديا", priceMode:"fixed", price30:50, minPer30:0, maxPer30:0, extras:[] },
 ];
 const INIT_PROFILES = [{ id:"default", name:"الأساسي", emoji:"⚡", styles:JSON.parse(JSON.stringify(INIT_STYLES)) }];
 
@@ -167,15 +166,20 @@ export default function App({ user, onSignOut }) {
 
   // ── Calculate ──
   const calc = useCallback(() => {
-    if (!style) return { total:0, ft:0, et:0 };
-    let total = (style.price30||0) * (dur/30);
-    total *= (1 + urg/100);
-    total += extTotal;
+    if (!style) return { min:0, max:0, ft:0, et:0 };
     let ft = 0;
     if (withTeam) ft = selMem.reduce((s,id) => s + (num(memCost[id])), 0);
-    total += ft;
-    if (cur === "IQD") { total *= rate; ft *= rate; }
-    return { total:Math.round(total), ft:cur==="IQD"?Math.round(ft):ft, et:cur==="IQD"?Math.round(extTotal*rate):extTotal };
+    const urgMult = 1 + urg/100;
+    if (style.priceMode === "range") {
+      let minBase = (style.minPer30||0) * (dur/30) * urgMult + extTotal + ft;
+      let maxBase = (style.maxPer30||0) * (dur/30) * urgMult + extTotal + ft;
+      if (cur === "IQD") { minBase *= rate; maxBase *= rate; ft *= rate; }
+      return { min:Math.round(minBase), max:Math.round(maxBase), ft:cur==="IQD"?Math.round(ft):ft, et:cur==="IQD"?Math.round(extTotal*rate):extTotal };
+    } else {
+      let total = (style.price30||0) * (dur/30) * urgMult + extTotal + ft;
+      if (cur === "IQD") { total *= rate; ft *= rate; }
+      return { min:Math.round(total), max:Math.round(total), ft:cur==="IQD"?Math.round(ft):ft, et:cur==="IQD"?Math.round(extTotal*rate):extTotal };
+    }
   }, [style, dur, urg, cur, rate, withTeam, selMem, memCost, extTotal]);
   const res = calc();
 
@@ -186,7 +190,7 @@ export default function App({ user, onSignOut }) {
     const entry = {
       id: Date.now(), client: sf.client.trim(), notes: sf.notes, profile: ap.name, profileEmoji: ap.emoji,
       style: style.name, styleIcon: style.icon, duration: `${dur} ثانية`,
-      urgency: urg, currency: cur, priceMin: res.total, priceMax: res.total, extras: usedExt,
+      urgency: urg, currency: cur, priceMin: res.min, priceMax: res.max, extras: usedExt,
       teamMembers: withTeam ? selMem.map(mid => { const m = team.find(t=>t.id===mid); return m ? { id:m.id, name:m.name, estCost:memCost[mid]||0 } : null; }).filter(Boolean) : [],
       date: new Date().toISOString(), completed: false, finalReceived: null, finalTeamCosts: null,
     };
@@ -243,8 +247,8 @@ export default function App({ user, onSignOut }) {
     setShowSet(false);
   };
 
-  const editStyle = s => { setEsId(s.id); setSForm(JSON.parse(JSON.stringify(s))); };
-  const addNewStyle = () => { setEsId("new"); setSForm({ id:"s_"+Date.now(), name:"", icon:"🎯", desc:"", price30:0, extras:[] }); };
+  const editStyle = s => { setEsId(s.id); const copy = JSON.parse(JSON.stringify(s)); if (!copy.priceMode) copy.priceMode = "fixed"; if (copy.minPer30==null) copy.minPer30=0; if (copy.maxPer30==null) copy.maxPer30=0; setSForm(copy); };
+  const addNewStyle = () => { setEsId("new"); setSForm({ id:"s_"+Date.now(), name:"", icon:"🎯", desc:"", priceMode:"fixed", price30:0, minPer30:0, maxPer30:0, extras:[] }); };
   const saveStyleForm = () => {
     if (!sForm || !sForm.name.trim()) return;
     if (esId === "new") setEStyles([...eStyles, sForm]);
@@ -332,7 +336,7 @@ export default function App({ user, onSignOut }) {
                 onMouseLeave={e=>{if(selStyle!==s.id)e.currentTarget.style.borderColor="rgba(255,255,255,0.06)";}}>
                 <div style={{fontSize:"18px",marginBottom:"4px"}}>{s.icon}</div>
                 <div style={{fontSize:"14px",color:selStyle===s.id?"#f5f3ef":"#bbb",fontWeight:500,marginBottom:"3px"}}>{s.name}</div>
-                <div style={{fontSize:"11px",color:"#555"}}>${s.price30}/30ث</div>
+                <div style={{fontSize:"11px",color:"#555"}}>{s.priceMode==="range"?`$${s.minPer30}–$${s.maxPer30}/30ث`:`$${s.price30}/30ث`}</div>
                 {s.extras?.length>0&&<div style={{fontSize:"10px",color:"#444",marginTop:"4px"}}>{s.extras.length} إضافات</div>}
               </button>))}
             </div>
@@ -398,9 +402,17 @@ export default function App({ user, onSignOut }) {
             <div style={{background:"linear-gradient(135deg,rgba(212,175,55,0.06),rgba(212,175,55,0.02))",border:"1px solid rgba(212,175,55,0.2)",borderRadius:"16px",padding:"24px",textAlign:"center",marginTop:"8px"}}>
               <div style={{fontSize:"11px",letterSpacing:"3px",color:"#888",marginBottom:"14px"}}>السعر المقترح</div>
               <div style={{display:"flex",justifyContent:"center",alignItems:"baseline",gap:"10px",direction:"ltr",flexWrap:"wrap"}}>
-                <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
-                <span style={{fontSize:"38px",fontWeight:300,color:"#d4af37",lineHeight:1}}>{fmt(res.total)}</span>
-                <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
+                {style?.priceMode==="range"?<>
+                  <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
+                  <span style={{fontSize:"38px",fontWeight:300,color:"#d4af37",lineHeight:1}}>{fmt(res.min)}</span>
+                  <span style={{fontSize:"18px",color:"#666",margin:"0 4px"}}>—</span>
+                  <span style={{fontSize:"38px",fontWeight:300,color:"#d4af37",lineHeight:1}}>{fmt(res.max)}</span>
+                  <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
+                </>:<>
+                  <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
+                  <span style={{fontSize:"38px",fontWeight:300,color:"#d4af37",lineHeight:1}}>{fmt(res.min)}</span>
+                  <span style={{fontSize:"13px",color:"#999"}}>{sym}</span>
+                </>}
               </div>
               {(res.et>0||res.ft>0)&&<div style={{marginTop:"12px",display:"flex",gap:"8px",justifyContent:"center",flexWrap:"wrap"}}>
                 {res.et>0&&<span style={tagSm("rgba(52,211,153,0.08)","#34d399")}>إضافات: {fmt(res.et)} {sym}</span>}
@@ -452,7 +464,7 @@ export default function App({ user, onSignOut }) {
                   {log.urgency>0&&<span style={tag("rgba(251,191,36,0.1)","#fbbf24")}>+{log.urgency}%</span>}
                 </div>
                 {log.extras?.length>0&&<div style={{display:"flex",gap:"4px",flexWrap:"wrap",marginBottom:"6px"}}>{log.extras.map((ex,i)=>(<span key={i} style={tag("rgba(52,211,153,0.08)","#34d399")}>{ex.icon} {ex.name} ×{ex.qty}</span>))}</div>}
-                <div style={{fontSize:"17px",fontWeight:400,color:"#d4af37",direction:"ltr",textAlign:"right"}}>{log.currency==="USD"?"$":"د.ع"} {fmt(log.priceMin)}</div>
+                <div style={{fontSize:"17px",fontWeight:400,color:"#d4af37",direction:"ltr",textAlign:"right"}}>{log.currency==="USD"?"$":"د.ع"} {log.priceMin!==log.priceMax?`${fmt(log.priceMin)}–${fmt(log.priceMax)}`:fmt(log.priceMin)}</div>
                 {log.teamMembers?.length>0&&<div style={{marginTop:"6px",fontSize:"11px",color:"#777"}}>الفريق: {log.teamMembers.map(m=>m.name).join(" · ")}</div>}
                 {log.notes&&<div style={{marginTop:"4px",fontSize:"12px",color:"#555",fontStyle:"italic"}}>"{log.notes}"</div>}
 
@@ -478,7 +490,7 @@ export default function App({ user, onSignOut }) {
         <h2 style={mTitle}>📋 حفظ بالسجل</h2>
         <div style={{marginBottom:"14px"}}><label style={sLbl}>اسم العميل *</label><input value={sf.client} onChange={e=>setSf({...sf,client:e.target.value})} placeholder="اكتب اسم العميل..." style={{...inp,padding:"12px 14px",fontSize:"14px"}} autoFocus/></div>
         <div style={{marginBottom:"14px"}}><label style={sLbl}>ملاحظات</label><input value={sf.notes} onChange={e=>setSf({...sf,notes:e.target.value})} placeholder="اختياري..." style={{...inp,padding:"12px 14px"}}/></div>
-        <div style={{...previewBox}}>{ap.emoji} {style?.icon} {style?.name} · <span style={{color:"#d4af37"}}>{fmt(res.total)} {sym}</span></div>
+        <div style={{...previewBox}}>{ap.emoji} {style?.icon} {style?.name} · <span style={{color:"#d4af37"}}>{style?.priceMode==="range"?`${fmt(res.min)}–${fmt(res.max)} ${sym}`:`${fmt(res.min)} ${sym}`}</span></div>
         <div style={{display:"flex",gap:"10px"}}><button onClick={doSave} style={{...goldBtn,flex:1,opacity:sf.client.trim()?1:0.4,cursor:sf.client.trim()?"pointer":"not-allowed"}}>حفظ</button><button onClick={()=>setShowSave(false)} style={cancelBtn}>إلغاء</button></div>
       </Modal>}
 
@@ -527,7 +539,20 @@ export default function App({ user, onSignOut }) {
                 <div><label style={sLbl}>الأيقونة</label><div style={{display:"flex",gap:"5px",flexWrap:"wrap"}}>{ICONS.map(ic=>(<button key={ic} onClick={()=>setSForm({...sForm,icon:ic})} style={{width:"30px",height:"30px",borderRadius:"6px",fontSize:"14px",border:`1px solid ${sForm.icon===ic?"#d4af37":"rgba(255,255,255,0.06)"}`,background:sForm.icon===ic?"rgba(212,175,55,0.15)":"rgba(255,255,255,0.02)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{ic}</button>))}</div></div>
                 <div><label style={sLbl}>الاسم *</label><input value={sForm.name} onChange={e=>setSForm({...sForm,name:e.target.value})} style={inp}/></div>
                 <div><label style={sLbl}>الوصف</label><input value={sForm.desc} onChange={e=>setSForm({...sForm,desc:e.target.value})} style={inp}/></div>
-                <div><label style={sLbl}>السعر لكل 30 ثانية ($)</label><NF val={sForm.price30} set={v=>setSForm({...sForm,price30:v})}/></div>
+                <div>
+                  <label style={sLbl}>نوع التسعير</label>
+                  <div style={{display:"flex",marginBottom:"10px"}}>
+                    {[{v:"fixed",l:"سعر ثابت"},{v:"range",l:"مدى سعري"}].map(o=>(
+                      <button key={o.v} onClick={()=>setSForm({...sForm,priceMode:o.v})} style={togBtn(sForm.priceMode===o.v,o.v==="fixed")}>{o.l}</button>
+                    ))}
+                  </div>
+                  {sForm.priceMode==="range"?
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
+                      <div><label style={sLbl}>الحد الأدنى/30ث ($)</label><NF val={sForm.minPer30||0} set={v=>setSForm({...sForm,minPer30:v})}/></div>
+                      <div><label style={sLbl}>الحد الأقصى/30ث ($)</label><NF val={sForm.maxPer30||0} set={v=>setSForm({...sForm,maxPer30:v})}/></div>
+                    </div>
+                  :<div><label style={sLbl}>السعر لكل 30 ثانية ($)</label><NF val={sForm.price30||0} set={v=>setSForm({...sForm,price30:v})}/></div>}
+                </div>
                 <div style={{borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:"12px",marginTop:"4px"}}>
                   <label style={{...sLbl,fontSize:"12px",color:"#d4af37"}}>إضافات هذا الاستايل</label>
                   {sForm.extras.map((ex,i)=>(<div key={i} style={{display:"flex",gap:"6px",alignItems:"center",marginBottom:"8px",padding:"8px 10px",background:"rgba(255,255,255,0.02)",borderRadius:"8px",border:"1px solid rgba(255,255,255,0.06)"}}>
@@ -546,7 +571,7 @@ export default function App({ user, onSignOut }) {
                 <div style={{fontSize:"22px"}}>{s.icon}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:"13px",fontWeight:500,color:"#eee"}}>{s.name}</div>
-                  <div style={{fontSize:"11px",color:"#666"}}>${s.price30}/30ث{s.extras?.length>0?` · ${s.extras.length} إضافات`:""}</div>
+                  <div style={{fontSize:"11px",color:"#666"}}>{s.priceMode==="range"?`$${s.minPer30||0}–$${s.maxPer30||0}/30ث`:`$${s.price30||0}/30ث`}{s.extras?.length>0?` · ${s.extras.length} إضافات`:""}</div>
                 </div>
                 <button onClick={()=>editStyle(s)} style={{padding:"5px 10px",borderRadius:"6px",fontSize:"11px",cursor:"pointer",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.08)",color:"#d4af37"}}>تعديل</button>
                 <button onClick={()=>delStyle(s.id)} style={{padding:"5px 10px",borderRadius:"6px",fontSize:"11px",cursor:"pointer",border:"1px solid rgba(220,50,50,0.2)",background:"rgba(220,50,50,0.08)",color:"#c44"}}>حذف</button>

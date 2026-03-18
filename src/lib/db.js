@@ -21,7 +21,10 @@ function styleFromDB(s) {
     name: s.name,
     icon: s.icon,
     desc: s.description ?? '',
-    price30: s.min_per30 || s.max_per30 || s.min_fixed || s.max_fixed || 0,
+    priceMode: (s.max_per30 > 0) ? "range" : "fixed",
+    price30: (s.max_per30 > 0) ? 0 : (s.min_per30 || s.min_fixed || s.max_fixed || 0),
+    minPer30: (s.max_per30 > 0) ? (s.min_per30 || 0) : 0,
+    maxPer30: (s.max_per30 > 0) ? (s.max_per30 || 0) : 0,
     extras: (s.extras || [])
       .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
       .map(extraFromDB),
@@ -169,8 +172,8 @@ export async function syncProfiles(prevProfiles, nextProfiles, userId) {
           icon: style.icon,
           description: style.desc || '',
           is_fixed: false,
-          min_per30: style.price30 || 0,
-          max_per30: 0,
+          min_per30: style.priceMode === "fixed" ? (style.price30 || 0) : (style.minPer30 || 0),
+          max_per30: style.priceMode === "fixed" ? 0 : (style.maxPer30 || 0),
           min_fixed: 0,
           max_fixed: 0,
           display_order: j,
